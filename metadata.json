@@ -1,0 +1,6 @@
+{
+  "name": "10MsCourse - Affiliate Course Hub",
+  "description": "10 Minute School affiliate course portal on 10mscourse.shop with centralized course management, smart discount handling, WhatsApp widget, live Google Meet support, and SEO-friendly structure.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
