@@ -821,6 +821,59 @@ export const INITIAL_COURSES: Course[] = ${JSON.stringify(courses, null, 2)};
               </button>
             </div>
 
+            {/* Permanent Cloud Sync Status & Quick Action Bar */}
+            <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs border-b border-emerald-500/30">
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0">
+                  <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-300">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                    <span>Firebase ক্লাউড ডাটাবেজ সচল</span>
+                    <span className="text-slate-400 font-normal hidden md:inline">
+                      ({courses.length} কোর্স • {classes.length} ক্লাস • {categories.length} ক্যাটাগরি)
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-300">
+                    {lastSyncedAt ? `সর্বশেষ ক্লাউড আপডেট: ${lastSyncedAt.toLocaleTimeString('bn-BD')}` : 'রিয়েলটাইম স্বয়ংক্রিয় ক্লাউড সিঙ্ক সক্রিয়'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    showToast('⏳ ক্লাউডে সম্পূর্ণ ডেটা সেভ হচ্ছে...');
+                    const ok = await syncAllToCloud();
+                    if (ok) {
+                      showToast('✅ Firebase ক্লাউডে সবকিছু সফলভাবে সংরক্ষিত হয়েছে!');
+                    } else {
+                      showToast('⚠️ ক্লাউড সিঙ্ক ব্যর্থ হয়েছে।');
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-xs active:scale-95"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>এখনই ক্লাউডে সেভ করুন</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('cloudsync')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    activeTab === 'cloudsync'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'bg-white/10 hover:bg-white/20 text-emerald-200 border border-emerald-500/30'
+                  }`}
+                >
+                  <Cloud className="w-3.5 h-3.5" />
+                  <span>ক্লাউড সিঙ্ক ড্যাশবোর্ড</span>
+                </button>
+              </div>
+            </div>
+
             {/* Tab Body */}
             <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
               
@@ -3257,7 +3310,15 @@ export const INITIAL_COURSES: Course[] = ${JSON.stringify(courses, null, 2)};
                       </span>
                       <button
                         type="button"
-                        onClick={() => showToast('গুগল মিট লিংক ও সেটিংস সফলভাবে আপডেট করা হয়েছে!')}
+                        onClick={async () => {
+                          showToast('⏳ গুগল মিট সেটিংস ক্লাউডে সেভ হচ্ছে...');
+                          const success = await syncAllToCloud({ siteSettings });
+                          if (success) {
+                            showToast('✅ গুগল মিট লিংক ও সেটিংস ক্লাউডে সফলভাবে সেভ হয়েছে!');
+                          } else {
+                            showToast('⚠️ ক্লাউড সিঙ্ক সম্পন্ন হতে পারেনি, লোকালি সংরক্ষিত হয়েছে।');
+                          }
+                        }}
                         className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95"
                       >
                         <Save className="w-3.5 h-3.5" />
@@ -3389,7 +3450,15 @@ export const INITIAL_COURSES: Course[] = ${JSON.stringify(courses, null, 2)};
                       </span>
                       <button
                         type="button"
-                        onClick={() => showToast('হোয়াটসঅ্যাপ সেটিংস সফলভাবে আপডেট ও সংরক্ষিত হয়েছে!')}
+                        onClick={async () => {
+                          showToast('⏳ হোয়াটসঅ্যাপ সেটিংস ক্লাউডে সেভ হচ্ছে...');
+                          const success = await syncAllToCloud({ siteSettings });
+                          if (success) {
+                            showToast('✅ হোয়াটসঅ্যাপ সেটিংস ক্লাউডে সফলভাবে সেভ হয়েছে!');
+                          } else {
+                            showToast('⚠️ ক্লাউড সিঙ্ক সম্পন্ন হতে পারেনি, লোকালি সংরক্ষিত হয়েছে।');
+                          }
+                        }}
                         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95"
                       >
                         <Save className="w-3.5 h-3.5" />
