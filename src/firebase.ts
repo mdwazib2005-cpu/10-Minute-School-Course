@@ -1,0 +1,18 @@
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+
+export const firebaseConfig = {
+  projectId: "single-emissary-x8chg",
+  appId: "1:847363826368:web:7528bb7d3f3ef2c2318325",
+  apiKey: "AIzaSyBdVRy0xcnDOE2onyyM_dXscIAzfFY39gY",
+  authDomain: "single-emissary-x8chg.firebaseapp.com",
+  firestoreDatabaseId: "ai-studio-10mincourseaffil-f0b35c77-f427-4a21-8387-d9a068c9a319",
+  storageBucket: "single-emissary-x8chg.firebasestorage.app",
+  messagingSenderId: "847363826368"
+};
+
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+
+export const db = firebaseConfig.firestoreDatabaseId
+  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(app);

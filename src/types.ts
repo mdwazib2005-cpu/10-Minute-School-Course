@@ -179,8 +179,10 @@ export interface SiteSettings {
 
   // Google Meet
   googleMeetLink: string;
+  googleMeetUrl?: string; // alias for googleMeetLink
   isMeetLive: boolean; // toggle live meet status
   meetTopic: string;
+  meetBannerText?: string; // alias for meetTopic
   meetHostName: string;
 
   // Footer & Contact

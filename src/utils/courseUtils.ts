@@ -96,3 +96,47 @@ export function getTimeRemaining(expiryDateStr: string | null | undefined): {
     formattedBengali,
   };
 }
+
+/**
+ * Formats WhatsApp contact (phone number or @username or wa.me link) into a valid URL
+ */
+export function formatWhatsAppUrl(contactInput: string | undefined | null, message?: string): string {
+  if (!contactInput || !contactInput.trim()) {
+    contactInput = '8801712345678';
+  }
+  let input = contactInput.trim();
+  const encodedText = message ? encodeURIComponent(message) : '';
+  const textQuery = encodedText ? `?text=${encodedText}` : '';
+
+  // 1. If it's already a full URL (https://wa.me/... or http://...)
+  if (/^https?:\/\//i.test(input)) {
+    const separator = input.includes('?') ? '&' : '?';
+    return encodedText ? `${input}${separator}text=${encodedText}` : input;
+  }
+
+  // 2. If it starts with wa.me/
+  if (/^wa\.me\//i.test(input)) {
+    const withoutPrefix = input.replace(/^wa\.me\//i, '');
+    return `https://wa.me/${withoutPrefix}${textQuery}`;
+  }
+
+  // 3. If it starts with @ (e.g. "@md.me" or "@username")
+  if (input.startsWith('@')) {
+    return `https://wa.me/${input}${textQuery}`;
+  }
+
+  // 4. If it contains alphabetical characters, treat as a WhatsApp username
+  const hasLetters = /[a-zA-Z]/.test(input);
+  if (hasLetters) {
+    const username = input.startsWith('@') ? input : `@${input}`;
+    return `https://wa.me/${username}${textQuery}`;
+  }
+
+  // 5. Otherwise, treat as a standard phone number
+  let cleanNumber = input.replace(/[^0-9]/g, '');
+  // Auto-prefix Bangladesh country code if local 11-digit number
+  if (cleanNumber.length === 11 && cleanNumber.startsWith('01')) {
+    cleanNumber = `88${cleanNumber}`;
+  }
+  return `https://wa.me/${cleanNumber}${textQuery}`;
+}

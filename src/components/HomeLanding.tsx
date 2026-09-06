@@ -82,15 +82,21 @@ export const HomeLanding: React.FC = () => {
   return (
     <div className="space-y-10 pb-16">
       
-      {/* CLEAN APP-STYLE HERO SECTION MATCHING REFERENCE IMAGE */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 pt-4 sm:pt-8 text-center space-y-3">
+      {/* HERO SECTION */}
+      <section className="max-w-4xl mx-auto px-4 sm:px-6 pt-4 sm:pt-8 text-center space-y-3.5">
         
-        {/* Main Red Heading */}
+        {/* Trust badge */}
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 border border-red-200/60 text-[#D62B3B] text-[11px] sm:text-xs font-bold shadow-2xs">
+          <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+          <span>১০ মিনিট স্কুল অফিশিয়াল কোর্স ও ভেরিফায়েড ডিসকাউন্ট হাব</span>
+        </div>
+
+        {/* Main Heading */}
         <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-[#D62B3B] tracking-tight leading-tight">
           ১০ মিনিট স্কুল কোর্স ডিসকাউন্ট
         </h1>
 
-        {/* Unique Custom Subtitle */}
+        {/* Subtitle */}
         <p className="text-slate-600 text-xs sm:text-base max-w-xl mx-auto leading-relaxed">
           অনলাইন ব্যাচ, একাডেমি ও এডমিশন সহ সকল কোর্সের অফিশিয়াল ভেরিফায়েড প্রমো কোড ও সর্বোচ্চ ছাড় পেতে আপনার পছন্দের কোর্সটি বেছে নিন।
         </p>
@@ -98,51 +104,55 @@ export const HomeLanding: React.FC = () => {
         {/* Offer Countdown Banner */}
         <CountdownBanner />
 
-        {/* Clean Search Bar - Prioritizing Academic & Admission */}
+        {/* Clean Search Bar */}
         <div className="max-w-xl mx-auto pt-2">
           <div className="relative">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="কোর্স বা ক্লাস খুঁজুন (যেমন: HSC 26, এসএসসি, ভার্সিটি এডমিশন, Spoken)..."
+              placeholder="কোর্স বা বিষয় খুঁজুন (যেমন: HSC 26, এসএসসি, এডমিশন, Spoken)..."
               className="w-full pl-11 pr-24 py-3 bg-white border border-slate-200 text-slate-900 placeholder:text-slate-400 rounded-2xl text-xs sm:text-sm font-medium focus:outline-hidden focus:border-[#D62B3B] focus:ring-2 focus:ring-red-100 shadow-xs transition"
             />
             <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
             {searchQuery ? (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-xs text-slate-500 hover:text-slate-800 bg-slate-100 rounded-lg px-2.5 py-1 font-semibold"
+                className="absolute right-3 top-2.5 text-xs text-slate-500 hover:text-slate-800 bg-slate-100 rounded-lg px-2.5 py-1 font-semibold cursor-pointer"
               >
                 মুছুন ✕
               </button>
             ) : (
               <button 
                 onClick={() => setTargetAudienceModalOpen(true)}
-                className="absolute right-2 top-2 bg-red-50 hover:bg-red-100 text-[#CE1222] text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer"
+                className="absolute right-2 top-2 bg-red-50 hover:bg-red-100 text-[#CE1222] text-xs font-bold px-3 py-1.5 rounded-xl transition cursor-pointer active:scale-95"
               >
                 ক্লাস সিলেক্টর
               </button>
             )}
           </div>
-        </div>
 
-        {/* Horizontal Quick Category Filter Bar */}
-        <div className="flex items-center justify-center gap-1.5 flex-wrap pt-2">
-          {activeCategories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => handleCategorySelect(cat.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer active:scale-95 ${
-                selectedCategory === cat.id
-                  ? 'bg-[#CE1222] text-white shadow-xs'
-                  : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/80 shadow-2xs'
-              }`}
-            >
-              <span>{cat.icon}</span>
-              <span>{cat.label}</span>
-            </button>
-          ))}
+          {/* Quick Search Chips */}
+          <div className="flex items-center justify-center gap-1.5 flex-wrap pt-2.5 text-xs">
+            <span className="text-slate-600 text-[11px] font-medium">জনপ্রিয়:</span>
+            {['HSC 26', 'ভার্সিটি এডমিশন', 'এসএসসি', 'Spoken English', 'আইইএলটিএস'].map((term) => (
+              <button
+                key={term}
+                onClick={() => {
+                  setSearchQuery(term);
+                  const el = document.getElementById('all-courses-catalog');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold transition cursor-pointer ${
+                  searchQuery === term 
+                    ? 'bg-[#D62B3B] text-white' 
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                {term}
+              </button>
+            ))}
+          </div>
         </div>
 
       </section>

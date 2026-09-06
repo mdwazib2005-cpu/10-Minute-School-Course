@@ -13,12 +13,11 @@ import {
   Star, 
   Clock, 
   ArrowUpRight, 
-  MessageCircle, 
   Flame, 
   Tag, 
-  Info,
   Check
 } from 'lucide-react';
+import { OfficialWhatsAppIcon } from './FakeWhatsAppWidget';
 
 interface CourseCardProps {
   course: Course;
@@ -123,22 +122,22 @@ export const CourseCard: React.FC<CourseCardProps> = ({ course, compact = false,
             </div>
           </div>
 
-          {/* Title matching Reference: 2-line clamp, crisp bold */}
+          {/* Title matching Reference: 2-line clamp, aligned min-height */}
           <h3 
             onClick={handleOpenDetail}
-            className="font-bold text-xs sm:text-base text-slate-900 group-hover:text-[#D62B3B] transition-colors line-clamp-2 cursor-pointer leading-snug mb-1"
+            className="font-bold text-xs sm:text-sm lg:text-[15px] text-slate-900 group-hover:text-[#D62B3B] transition-colors line-clamp-2 cursor-pointer leading-snug min-h-[2.3rem] sm:min-h-[2.6rem] mb-1"
           >
             {course.title}
           </h3>
 
-          {/* Subtitle / Description */}
-          <p className="text-[10px] sm:text-xs text-slate-500 line-clamp-2 mb-2 leading-relaxed">
+          {/* Subtitle / Description with aligned min-height */}
+          <p className="text-[10px] sm:text-xs text-slate-500 line-clamp-1 sm:line-clamp-2 min-h-[1.1rem] sm:min-h-[1.9rem] mb-2 leading-relaxed">
             {course.subtitle || course.shortDescription}
           </p>
 
           {/* Key Feature Perks (only on larger screens if not compact) */}
           {!compact && course.features && course.features.length > 0 && (
-            <div className="hidden sm:block space-y-1 mb-3 pt-1.5 border-t border-slate-100">
+            <div className="hidden sm:block space-y-1 mb-2.5 pt-1.5 border-t border-slate-100">
               {course.features.slice(0, 1).map((feat, idx) => (
                 <div key={idx} className="flex items-start gap-1 text-xs text-slate-600">
                   <Check className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
@@ -150,12 +149,12 @@ export const CourseCard: React.FC<CourseCardProps> = ({ course, compact = false,
         </div>
 
         {/* Pricing & Call-to-Actions */}
-        <div className="pt-2 border-t border-slate-100">
+        <div className="pt-2 border-t border-slate-100 mt-auto">
           
-          {/* Price Row: Green current price and strikethrough regular price like screenshot */}
+          {/* Price Row: Green current price and strikethrough regular price */}
           <div className="flex items-baseline justify-between mb-2">
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className="text-base sm:text-xl font-black text-emerald-600 tracking-tight">
+              <span className="text-sm sm:text-lg font-black text-emerald-600 tracking-tight">
                 {formatBDT(currentPrice)}
               </span>
               {offerActive && course.offerPrice && (
@@ -167,34 +166,36 @@ export const CourseCard: React.FC<CourseCardProps> = ({ course, compact = false,
 
             <button
               onClick={handleOpenDetail}
-              className="text-[10px] sm:text-xs text-slate-400 hover:text-slate-700 font-semibold cursor-pointer"
+              className="text-[10px] sm:text-xs text-slate-400 hover:text-slate-800 font-semibold cursor-pointer underline-offset-2 hover:underline"
             >
               বিস্তারিত
             </button>
           </div>
 
-          {/* Action Buttons: Full-width vibrant CTA on mobile matching reference image */}
-          <div className="space-y-1.5 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-2">
+          {/* Action Buttons: Unified responsive design */}
+          <div className="flex items-center gap-1.5">
             
-            {/* Direct Affiliate Buy CTA (Matching blue button in user's image) */}
+            {/* Direct Affiliate Buy CTA */}
             <a
               href={course.affiliateUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full bg-[#1877F2] hover:bg-[#166fe5] active:bg-[#0d59b8] text-white text-xs sm:text-sm font-bold py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl shadow-xs transition flex items-center justify-center gap-1 cursor-pointer active:scale-95"
-              title="কোর্সটিতে ভর্তি হোন"
+              className="flex-1 bg-[#1877F2] hover:bg-[#166fe5] active:bg-[#0d59b8] text-white text-xs sm:text-sm font-bold py-2 sm:py-2.5 px-2 rounded-xl shadow-xs transition flex items-center justify-center gap-1 cursor-pointer active:scale-95 text-center whitespace-nowrap"
+              title="কোর্সটিতে সরাসরি ভর্তি হোন"
             >
-              <span>কোর্সটিতে ভর্তি হোন</span>
+              <span>ভর্তি হোন</span>
+              <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
             </a>
 
-            {/* WhatsApp Question / Discount Help (shown on desktop or accessible via detail) */}
+            {/* WhatsApp Question / Discount Help */}
             <button
+              type="button"
               onClick={() => openWhatsAppWithCourse(course)}
-              className="hidden sm:flex w-full bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] hover:text-[#075E54] border border-[#25D366]/30 text-xs sm:text-sm font-bold py-2 sm:py-2.5 px-2 rounded-xl transition items-center justify-center gap-1.5 cursor-pointer"
-              title="হোয়াটসঅ্যাপে ডিসকাউন্ট কুপন নিন"
+              className="p-2 sm:p-2.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 active:bg-[#25D366]/30 text-[#128C7E] hover:text-[#075E54] border border-[#25D366]/30 rounded-xl transition flex items-center justify-center shrink-0 cursor-pointer active:scale-95 shadow-2xs"
+              title="হোয়াটসঅ্যাপে ডিসকাউন্ট কুপন ও হেল্প নিন"
+              aria-label="WhatsApp Discount Support"
             >
-              <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-              <span className="truncate">ছাড়ের লিংক</span>
+              <OfficialWhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
             </button>
 
           </div>
@@ -206,3 +207,4 @@ export const CourseCard: React.FC<CourseCardProps> = ({ course, compact = false,
     </div>
   );
 };
+

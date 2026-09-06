@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useCourse } from '../context/CourseContext';
+import { formatWhatsAppUrl } from '../utils/courseUtils';
 import { 
   X, 
   Send, 
@@ -108,10 +109,8 @@ export const FakeWhatsAppWidget: React.FC = () => {
   // Immediately redirect to WhatsApp with the user's message
   const handleSend = (textToSend?: string) => {
     handleUserActivity();
-    const cleanNumber = (siteSettings.whatsappNumber || '8801712345678').replace(/[^0-9]/g, '');
     const finalMsg = textToSend || messageText.trim() || siteSettings.whatsappWelcomeMessage || 'আসসালামু আলাইকুম! আমি কোর্স ডিসকাউন্ট ও ভর্তি সম্পর্কে জানতে চাই।';
-    const encoded = encodeURIComponent(finalMsg);
-    const whatsappUrl = `https://wa.me/${cleanNumber}?text=${encoded}`;
+    const whatsappUrl = formatWhatsAppUrl(siteSettings.whatsappNumber, finalMsg);
     
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     setIsWhatsAppOpen(false);

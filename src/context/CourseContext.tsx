@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Course, CourseCategory, SiteSettings, BlogPost, Review, CategoryConfig, ClassPortalInfo, CustomPage, NavItemConfig } from '../types';
 import { INITIAL_COURSES, INITIAL_SITE_SETTINGS, INITIAL_BLOG_POSTS, INITIAL_REVIEWS, INITIAL_CATEGORIES, INITIAL_CLASSES, INITIAL_CUSTOM_PAGES } from '../data/initialData';
 import { DEFAULT_ADMIN_HASH, verifyAdminPassword, sha256 } from '../utils/securityUtils';
+import { db } from '../firebase';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 interface CourseContextType {
   courses: Course[];
@@ -22,6 +24,17 @@ interface CourseContextType {
   updateCustomPage: (page: CustomPage) => void;
   deleteCustomPage: (id: string) => void;
   openCustomPage: (pageOrId: CustomPage | string) => void;
+
+  // Cloud Database Real-time Sync
+  cloudSyncStatus: 'synced' | 'syncing' | 'offline' | 'error';
+  lastSyncedAt: Date | null;
+  syncAllToCloud: (overrideData?: {
+    courses?: Course[];
+    categories?: CategoryConfig[];
+    classes?: ClassPortalInfo[];
+    customPages?: CustomPage[];
+    siteSettings?: SiteSettings;
+  }) => Promise<boolean>;
 
   blogPosts: BlogPost[];
   blogs: BlogPost[];
@@ -243,6 +256,126 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [whatsAppPreloadMsg, setWhatsAppPreloadMsg] = useState('');
   const [activeView, setActiveView] = useState<'home' | 'courses' | 'blogs' | 'reviews' | 'faq' | 'admin-guide' | 'course-detail' | 'class-hub'>('home');
+
+  // Cloud Database Real-time Sync State (Firebase Firestore)
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'syncing' | 'offline' | 'error'>('syncing');
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const isRemoteUpdateRef = useRef(false);
+  const hasInitializedFromFirestoreRef = useRef(false);
+
+  // Helper to ensure payload doesn't contain unsupported undefined values
+  const sanitizeForFirestore = (data: any) => {
+    return JSON.parse(JSON.stringify(data, (key, value) => {
+      if (value === undefined) return null;
+      return value;
+    }));
+  };
+
+  // Sync to Firestore function
+  const syncAllToCloud = async (overrideData?: {
+    courses?: Course[];
+    categories?: CategoryConfig[];
+    classes?: ClassPortalInfo[];
+    customPages?: CustomPage[];
+    siteSettings?: SiteSettings;
+  }): Promise<boolean> => {
+    try {
+      setCloudSyncStatus('syncing');
+      const docRef = doc(db, 'site_content', 'main');
+      const payload = sanitizeForFirestore({
+        courses: overrideData?.courses || courses,
+        categories: overrideData?.categories || categories,
+        classes: overrideData?.classes || classes,
+        customPages: overrideData?.customPages || customPages,
+        siteSettings: overrideData?.siteSettings || siteSettings,
+        updatedAt: new Date().toISOString()
+      });
+      await setDoc(docRef, payload);
+      setCloudSyncStatus('synced');
+      setLastSyncedAt(new Date());
+      return true;
+    } catch (err) {
+      console.error('Firebase Firestore sync failed:', err);
+      setCloudSyncStatus('error');
+      return false;
+    }
+  };
+
+  // Listen to Firestore real-time updates for all visitors across the globe!
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    try {
+      const docRef = doc(db, 'site_content', 'main');
+      unsubscribe = onSnapshot(docRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          isRemoteUpdateRef.current = true;
+          if (Array.isArray(data.courses) && data.courses.length > 0) {
+            setCourses(data.courses);
+            try { localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(data.courses)); } catch {}
+          }
+          if (Array.isArray(data.categories) && data.categories.length > 0) {
+            setCategories(data.categories);
+            try { localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(data.categories)); } catch {}
+          }
+          if (Array.isArray(data.classes) && data.classes.length > 0) {
+            setClasses(data.classes);
+            try { localStorage.setItem(CLASSES_STORAGE_KEY, JSON.stringify(data.classes)); } catch {}
+          }
+          if (Array.isArray(data.customPages)) {
+            setCustomPages(data.customPages);
+            try { localStorage.setItem(CUSTOM_PAGES_STORAGE_KEY, JSON.stringify(data.customPages)); } catch {}
+          }
+          if (data.siteSettings) {
+            setSiteSettings(prev => ({ ...prev, ...data.siteSettings }));
+            try { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(data.siteSettings)); } catch {}
+          }
+          setCloudSyncStatus('synced');
+          setLastSyncedAt(new Date());
+          hasInitializedFromFirestoreRef.current = true;
+        } else {
+          // Document does not exist yet in Firestore. Seed it with initial data!
+          syncAllToCloud({
+            courses,
+            categories,
+            classes,
+            customPages,
+            siteSettings
+          });
+          hasInitializedFromFirestoreRef.current = true;
+        }
+      }, (error) => {
+        console.warn('Firestore real-time listener error (using local cache):', error);
+        setCloudSyncStatus('offline');
+      });
+    } catch (err) {
+      console.warn('Could not establish Firestore listener:', err);
+      setCloudSyncStatus('offline');
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  // Auto-sync local admin changes to Firestore with debounce
+  useEffect(() => {
+    // If this state change originated from a remote Firestore onSnapshot, don't re-upload
+    if (isRemoteUpdateRef.current) {
+      isRemoteUpdateRef.current = false;
+      return;
+    }
+    // Only auto-push after initial load has finished
+    if (!hasInitializedFromFirestoreRef.current) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      syncAllToCloud();
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [courses, categories, classes, customPages, siteSettings]);
 
   // Sorted and active categories for front-end rendering
   const activeCategories = categories
@@ -578,7 +711,20 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateSiteSettings = (settings: Partial<SiteSettings>) => {
-    setSiteSettings(prev => ({ ...prev, ...settings }));
+    setSiteSettings(prev => {
+      const updated = { ...prev, ...settings };
+      if (settings.googleMeetLink !== undefined) {
+        updated.googleMeetUrl = settings.googleMeetLink;
+      } else if (settings.googleMeetUrl !== undefined) {
+        updated.googleMeetLink = settings.googleMeetUrl;
+      }
+      if (settings.meetTopic !== undefined) {
+        updated.meetBannerText = settings.meetTopic;
+      } else if (settings.meetBannerText !== undefined) {
+        updated.meetTopic = settings.meetBannerText;
+      }
+      return updated;
+    });
   };
 
   const toggleMeetLive = () => {
@@ -691,6 +837,9 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         updateCustomPage,
         deleteCustomPage,
         openCustomPage,
+        cloudSyncStatus,
+        lastSyncedAt,
+        syncAllToCloud,
         blogPosts,
         blogs: blogPosts,
         reviews,

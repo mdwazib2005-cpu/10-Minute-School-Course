@@ -58,17 +58,17 @@ export const LiveGoogleMeetWidget: React.FC = () => {
         {/* Content */}
         <div className="space-y-1.5 mb-3">
           <h4 className="text-sm font-bold text-white leading-tight">
-            কোর্স সংক্রান্ত ফ্রি লাইভ কাউন্সেলিং
+            {siteSettings.meetTopic || siteSettings.meetBannerText || 'কোর্স সংক্রান্ত ফ্রি লাইভ কাউন্সেলিং'}
           </h4>
           <p className="text-xs text-slate-300 leading-relaxed">
-            {siteSettings.meetHostName} এখন গুগল মিটে সরাসরি একটিভ আছেন। কোর্স চয়েস বা ডিসকাউন্ট নিয়ে যেকোনো কথা বলতে এখনই জয়েন করুন।
+            {siteSettings.meetHostName || '১০ মিনিট স্কুল সিনিয়র মেন্টর'} এখন গুগল মিটে সরাসরি একটিভ আছেন। কোর্স চয়েস বা ডিসকাউন্ট নিয়ে যেকোনো কথা বলতে এখনই জয়েন করুন।
           </p>
         </div>
 
         {/* Join CTA */}
         <div className="flex items-center gap-2">
           <a
-            href={siteSettings.googleMeetLink}
+            href={siteSettings.googleMeetLink || siteSettings.googleMeetUrl || 'https://meet.google.com'}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white text-xs font-extrabold py-2.5 px-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition active:scale-98"

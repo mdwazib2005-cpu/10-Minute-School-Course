@@ -49,7 +49,7 @@ import {
   RotateCcw,
   Link as LinkIcon
 } from 'lucide-react';
-import { formatBDT, isOfferActive, isCourseExpired, getCurrentPrice } from '../utils/courseUtils';
+import { formatBDT, isOfferActive, isCourseExpired, getCurrentPrice, formatWhatsAppUrl } from '../utils/courseUtils';
 import { BrandLogo } from './BrandLogo';
 
 const PRESET_COURSE_THUMBNAILS = [
@@ -147,6 +147,7 @@ export const AdminManagerModal: React.FC = () => {
     resetCategories,
     classes,
     updateClassPortal,
+    customPages,
     siteSettings, 
     updateSiteSettings, 
     toggleMeetLive, 
@@ -163,7 +164,10 @@ export const AdminManagerModal: React.FC = () => {
     updateNavItem,
     deleteNavItem,
     reorderNavItem,
-    resetNavItems
+    resetNavItems,
+    cloudSyncStatus,
+    lastSyncedAt,
+    syncAllToCloud
   } = useCourse();
 
   // Authentication State
@@ -442,6 +446,44 @@ export const AdminManagerModal: React.FC = () => {
     showToast('💾 সমস্ত কোর্সের ব্যাকআপ ফাইল ডাউনলোড সম্পন্ন হয়েছে!');
   };
 
+  // Generate complete TypeScript code for src/data/initialData.ts
+  const generateInitialDataTsCode = () => {
+    return `import { Course, SiteSettings, CategoryConfig, ClassPortalInfo, CustomPage } from '../types';
+
+export const INITIAL_CATEGORIES: CategoryConfig[] = ${JSON.stringify(categories, null, 2)};
+
+export const INITIAL_CLASSES: ClassPortalInfo[] = ${JSON.stringify(classes || [], null, 2)};
+
+export const INITIAL_CUSTOM_PAGES: CustomPage[] = ${JSON.stringify(customPages || [], null, 2)};
+
+export const INITIAL_SITE_SETTINGS: SiteSettings = ${JSON.stringify(siteSettings, null, 2)};
+
+export const INITIAL_COURSES: Course[] = ${JSON.stringify(courses, null, 2)};
+`;
+  };
+
+  const handleDownloadInitialDataTs = () => {
+    const code = generateInitialDataTsCode();
+    const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(code);
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", "initialData.ts");
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    showToast('🚀 initialData.ts ডাউনলোড হয়েছে! এটি আপনার গিটহাবের src/data/ ফাইলে রিপ্লেস করুন।');
+  };
+
+  const handleCopyInitialDataTs = async () => {
+    const code = generateInitialDataTsCode();
+    try {
+      await navigator.clipboard.writeText(code);
+      showToast('📋 initialData.ts কোড সফলভাবে কপি হয়েছে! গিটহাবে পেস্ট করুন।');
+    } catch {
+      showToast('কপি ব্যর্থ হয়েছে। অনুগ্রহ করে ডাউনলোড বাটন ব্যবহার করুন।');
+    }
+  };
+
   const handleImportJSON = () => {
     try {
       const parsed = JSON.parse(jsonInput);
@@ -510,14 +552,44 @@ export const AdminManagerModal: React.FC = () => {
 
           <div className="flex items-center gap-2">
             {isAdminAuthenticated && (
-              <button
-                onClick={() => setIsAdminAuthenticated(false)}
-                className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl transition flex items-center gap-1 cursor-pointer"
-                title="প্যানেল লক করুন"
-              >
-                <Lock className="w-3.5 h-3.5 text-rose-400" />
-                <span className="hidden sm:inline">লক করুন</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    showToast('⏳ ক্লাউড ডাটাবেজে সেভ হচ্ছে...');
+                    const success = await syncAllToCloud();
+                    if (success) {
+                      showToast('☁️ Firebase Firestore ক্লাউডে সব ডেটা সফলভাবে সেভ হয়েছে!');
+                    } else {
+                      showToast('⚠️ ক্লাউড সিঙ্ক ব্যর্থ হয়েছে। ইন্টারনেট সংযোগ চেক করুন।');
+                    }
+                  }}
+                  className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 border ${
+                    cloudSyncStatus === 'synced'
+                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/90'
+                      : cloudSyncStatus === 'syncing'
+                      ? 'bg-amber-950/80 text-amber-300 border-amber-500/40 animate-pulse'
+                      : 'bg-rose-950/80 text-rose-300 border-rose-500/40 hover:bg-rose-900'
+                  }`}
+                  title="রিয়েলটাইম ক্লাউড সিঙ্ক (Firebase Firestore)"
+                >
+                  <span className={`w-2 h-2 rounded-full ${
+                    cloudSyncStatus === 'synced' ? 'bg-emerald-400' : cloudSyncStatus === 'syncing' ? 'bg-amber-400 animate-ping' : 'bg-rose-400'
+                  }`} />
+                  <span className="hidden sm:inline">
+                    {cloudSyncStatus === 'synced' ? 'ক্লাউড সিঙ্কড' : cloudSyncStatus === 'syncing' ? 'সিঙ্ক হচ্ছে...' : 'পুনরায় সিঙ্ক'}
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setIsAdminAuthenticated(false)}
+                  className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl transition flex items-center gap-1 cursor-pointer"
+                  title="প্যানেল লক করুন"
+                >
+                  <Lock className="w-3.5 h-3.5 text-rose-400" />
+                  <span className="hidden sm:inline">লক করুন</span>
+                </button>
+              </>
             )}
             <button
               onClick={() => setAdminModalOpen(false)}
@@ -2896,20 +2968,24 @@ export const AdminManagerModal: React.FC = () => {
 
               {/* TAB 5: GOOGLE MEET LIVE SWITCH */}
               {activeTab === 'meet' && (
-                <div className="space-y-4 max-w-2xl bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                  <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+                <div className="space-y-4 max-w-2xl bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs">
+                  <div className="flex items-center justify-between pb-4 border-b border-slate-100">
                     <div>
-                      <h3 className="font-bold text-base text-slate-900">গুগল মিট লাইভ সুইচ (Instant Live Badge)</h3>
-                      <p className="text-xs text-slate-500">অন করলে হোমপেজে লাইভ ইন্ডিকেটর ও পপআপ চালু হবে</p>
+                      <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                        <Radio className="w-5 h-5 text-rose-600 animate-pulse" />
+                        <span>গুগল মিট লাইভ সুইচ ও কনফিগারেশন</span>
+                      </h3>
+                      <p className="text-xs text-slate-500">অন করলে হোমপেজ ও ব্যানারে লাল লাইভ ব্যাজ ও সরাসরি জয়েন বাটন দেখাবে</p>
                     </div>
                     
                     <button
+                      type="button"
                       onClick={() => {
                         toggleMeetLive();
-                        showToast(siteSettings.isMeetLive ? 'গুগল মিট লাইভ বন্ধ করা হয়েছে' : 'গুগল মিট লাইভ চালু করা হয়েছে!');
+                        showToast(!siteSettings.isMeetLive ? '🔴 গুগল মিট লাইভ চালু করা হয়েছে!' : '⚪ গুগল মিট লাইভ বন্ধ করা হয়েছে');
                       }}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm flex items-center gap-2 cursor-pointer ${
-                        siteSettings.isMeetLive ? 'bg-rose-600 text-white' : 'bg-slate-300 text-slate-700'
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-2 cursor-pointer active:scale-95 ${
+                        siteSettings.isMeetLive ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'
                       }`}
                     >
                       <Radio className="w-4 h-4" />
@@ -2917,26 +2993,74 @@ export const AdminManagerModal: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="space-y-3 pt-2">
+                  <div className="space-y-4 pt-1 text-xs">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">গুগল মিট মিটিং লিংক (Meet URL)</label>
-                      <input
-                        type="url"
-                        value={siteSettings.googleMeetUrl}
-                        onChange={(e) => updateSiteSettings({ googleMeetUrl: e.target.value })}
-                        className="w-full text-xs sm:text-sm p-2.5 bg-white border border-slate-300 rounded-xl font-mono"
-                        placeholder="https://meet.google.com/abc-defg-hij"
-                      />
+                      <label className="block text-xs font-bold text-slate-700 mb-1">গুগল মিট মিটিং লিংক (Google Meet URL)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          value={siteSettings.googleMeetLink || siteSettings.googleMeetUrl || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            updateSiteSettings({ googleMeetLink: val, googleMeetUrl: val });
+                          }}
+                          className="flex-1 text-xs sm:text-sm p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-rose-500 transition"
+                          placeholder="https://meet.google.com/abc-defg-hij"
+                        />
+                        {(siteSettings.googleMeetLink || siteSettings.googleMeetUrl) && (
+                          <a
+                            href={siteSettings.googleMeetLink || siteSettings.googleMeetUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold flex items-center gap-1 shrink-0 cursor-pointer"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>টেস্ট করুন</span>
+                          </a>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">আপনার গুগল মিট লিংকটি পেস্ট করুন (যেমন: https://meet.google.com/abc-defg-hij)</p>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">লাইভ ব্যানার মেসেজ</label>
-                      <input
-                        type="text"
-                        value={siteSettings.meetBannerText}
-                        onChange={(e) => updateSiteSettings({ meetBannerText: e.target.value })}
-                        className="w-full text-xs sm:text-sm p-2.5 bg-white border border-slate-300 rounded-xl"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">লাইভ সেশনের বিষয় / ব্যানার মেসেজ</label>
+                        <input
+                          type="text"
+                          value={siteSettings.meetTopic || siteSettings.meetBannerText || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            updateSiteSettings({ meetTopic: val, meetBannerText: val });
+                          }}
+                          className="w-full text-xs sm:text-sm p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-rose-500 transition"
+                          placeholder="এইচএসসি ও এডমিশন লাইভ ক্যারিয়ার ও ডিসকাউন্ট গাইডলাইন"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">হোস্ট / মেন্টরের নাম</label>
+                        <input
+                          type="text"
+                          value={siteSettings.meetHostName || ''}
+                          onChange={(e) => updateSiteSettings({ meetHostName: e.target.value })}
+                          className="w-full text-xs sm:text-sm p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-rose-500 transition"
+                          placeholder="১০ মিনিট স্কুল সিনিয়র মেন্টর টিম"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> সেটিংস স্বয়ংক্রিয়ভাবে সংরক্ষিত হচ্ছে
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => showToast('গুগল মিট লিংক ও সেটিংস সফলভাবে আপডেট করা হয়েছে!')}
+                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>আপডেট ও সংরক্ষণ করুন</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -2951,7 +3075,7 @@ export const AdminManagerModal: React.FC = () => {
                         <MessageCircle className="w-5 h-5 text-emerald-600" />
                         <span>হোয়াটসঅ্যাপ উইজেট ও হেল্পলাইন সেটিংস</span>
                       </h3>
-                      <p className="text-xs text-slate-500">ভিজিটরদের জন্য স্বয়ংক্রিয় পপআপ ও সরাসরি চ্যাট নিয়ন্ত্রণ</p>
+                      <p className="text-xs text-slate-500">মোবাইল নম্বর কিংবা ইউজারনেম (wa.me/@username) দিয়ে সংযোগ করুন</p>
                     </div>
                   </div>
 
@@ -2993,25 +3117,46 @@ export const AdminManagerModal: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block font-bold text-slate-700 mb-1">হোয়াটসঅ্যাপ নাম্বার (আন্তর্জাতিক ফরম্যাট)</label>
-                        <input
-                          type="text"
-                          value={siteSettings.whatsappNumber}
-                          onChange={(e) => updateSiteSettings({ whatsappNumber: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono"
-                          placeholder="88017XXXXXXXX"
-                        />
+                      <div className="sm:col-span-2">
+                        <label className="block font-bold text-slate-700 mb-1">
+                          হোয়াটসঅ্যাপ নম্বর অথবা ইউজারনেম (Phone or Username)
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={siteSettings.whatsappNumber}
+                            onChange={(e) => updateSiteSettings({ whatsappNumber: e.target.value })}
+                            className="flex-1 p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-500 transition"
+                            placeholder="যেমন: @md.me বা wa.me/@md.me বা 88017XXXXXXXX"
+                          />
+                          <a
+                            href={formatWhatsAppUrl(siteSettings.whatsappNumber, 'টেস্ট মেসেজ: আসসালামু আলাইকুম!')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl font-bold flex items-center gap-1 shrink-0 cursor-pointer"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>লিংক টেস্ট</span>
+                          </a>
+                        </div>
+                        <div className="mt-1.5 p-2 bg-slate-100/80 rounded-lg text-[11px] text-slate-600 space-y-1">
+                          <p>
+                            💡 <strong>ইউজারনেম সাপোর্ট:</strong> আপনি চাইলে সরাসরি মোবাইল নম্বর (যেমন: <code>8801712345678</code>) অথবা হোয়াটসঅ্যাপ ইউজারনেম (যেমন: <code>@md.me</code> বা <code>wa.me/@md.me</code>) দিতে পারবেন।
+                          </p>
+                          <p className="text-emerald-700 font-mono text-[10px] break-all">
+                            🔗 তৈরি হওয়া লিংক: {formatWhatsAppUrl(siteSettings.whatsappNumber)}
+                          </p>
+                        </div>
                       </div>
 
                       <div>
-                        <label className="block font-bold text-slate-700 mb-1">প্রদর্শনযোগ্য নাম্বার</label>
+                        <label className="block font-bold text-slate-700 mb-1">প্রদর্শনযোগ্য নম্বর / ইউজারনেম (Display Text)</label>
                         <input
                           type="text"
                           value={siteSettings.whatsappDisplayNumber || siteSettings.whatsappNumber}
                           onChange={(e) => updateSiteSettings({ whatsappDisplayNumber: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono"
-                          placeholder="+880 1700-000000"
+                          className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono focus:bg-white focus:border-emerald-500 transition"
+                          placeholder="+880 1700-000000 বা @md.me"
                         />
                       </div>
 
@@ -3021,7 +3166,7 @@ export const AdminManagerModal: React.FC = () => {
                           type="text"
                           value={siteSettings.whatsappAdvisorName || '১০ মিনিট কোর্স হেল্পডেস্ক'}
                           onChange={(e) => updateSiteSettings({ whatsappAdvisorName: e.target.value })}
-                          className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold"
+                          className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold focus:bg-white focus:border-emerald-500 transition"
                         />
                       </div>
                     </div>
@@ -3032,8 +3177,22 @@ export const AdminManagerModal: React.FC = () => {
                         rows={3}
                         value={siteSettings.whatsappWelcomeMessage}
                         onChange={(e) => updateSiteSettings({ whatsappWelcomeMessage: e.target.value })}
-                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl"
+                        className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-emerald-500 transition"
                       />
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> সেটিংস স্বয়ংক্রিয়ভাবে সংরক্ষিত হচ্ছে
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => showToast('হোয়াটসঅ্যাপ সেটিংস সফলভাবে আপডেট ও সংরক্ষিত হয়েছে!')}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>আপডেট ও সংরক্ষণ করুন</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -3096,6 +3255,117 @@ export const AdminManagerModal: React.FC = () => {
                       <li>কীবোর্ড শর্টকাট: <span className="text-amber-300">Ctrl + Shift + A</span> (ম্যাক ইউজারদের জন্য Cmd + Shift + A)।</li>
                       <li>ফুটারের কপিরাইট লেখার ডানপাশে থাকা ডট (•) চিহ্নে ক্লিক করুন।</li>
                     </ul>
+                  </div>
+
+                  {/* Realtime Firebase Cloud Database Card */}
+                  <div className="p-5 sm:p-6 bg-linear-to-br from-emerald-950 via-slate-900 to-teal-950 text-white rounded-2xl shadow-lg border border-emerald-500/40 space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                          <span>ফ্রি ক্লাউড ডাটাবেজ (Firebase Firestore) সক্রিয়</span>
+                        </div>
+                        <h4 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                          <span>রিয়েলটাইম সেন্ট্রাল ক্লাউড ডাটাবেজ সিঙ্ক</span>
+                        </h4>
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                          আপনার ওয়েবসাইটে এখন <strong>Google Firebase Firestore</strong> ক্লাউড ডাটাবেজ যুক্ত করা হয়েছে। আপনি অ্যাডমিন প্যানেল থেকে যেকোনো কোর্স যোগ/এডিট, গুগল মিট লিংক, বা হোয়াটসঅ্যাপ নাম্বার পরিবর্তন করলে তা সাথে সাথে ক্লাউডে সেভ হয় এবং গিটহাবে ভিজিট করা সব ব্যবহারকারীর ডিভাইসে রিয়েল-টাইমে আপডেট হয়ে যায়!
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
+                        <span className="text-slate-400 text-[11px]">ডাটাবেজ স্ট্যাটাস:</span>
+                        <div className="flex items-center gap-2 font-bold">
+                          <span className={`w-2.5 h-2.5 rounded-full ${
+                            cloudSyncStatus === 'synced' ? 'bg-emerald-400' : cloudSyncStatus === 'syncing' ? 'bg-amber-400 animate-spin' : 'bg-rose-400'
+                          }`} />
+                          <span className={cloudSyncStatus === 'synced' ? 'text-emerald-300' : cloudSyncStatus === 'syncing' ? 'text-amber-300' : 'text-rose-300'}>
+                            {cloudSyncStatus === 'synced' ? 'অনলাইন ও সংযুক্ত (Synced)' : cloudSyncStatus === 'syncing' ? 'সিঙ্ক হচ্ছে...' : 'অফলাইন'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-1">
+                        <span className="text-slate-400 text-[11px]">সর্বশেষ ক্লাউড আপডেট:</span>
+                        <div className="font-bold text-slate-200">
+                          {lastSyncedAt ? lastSyncedAt.toLocaleTimeString('bn-BD') : 'সদ্য লোড হয়েছে'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          showToast('⏳ ক্লাউডে সেভ হচ্ছে...');
+                          const success = await syncAllToCloud();
+                          if (success) {
+                            showToast('☁️ ক্লাউড ডাটাবেজে সমস্ত ডেটা রিয়েলটাইমে সেভ হয়েছে!');
+                          } else {
+                            showToast('⚠️ সিঙ্ক ব্যর্থ হয়েছে। ইন্টারনেট সংযোগ চেক করুন।');
+                          }
+                        }}
+                        className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black rounded-xl text-xs flex items-center gap-2 transition cursor-pointer shadow-sm active:scale-95"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>এখনই ক্লাউডে সেভ করুন (Save to Cloud Now)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* GitHub Permanent Sync Card */}
+                  <div className="p-5 sm:p-6 bg-linear-to-br from-indigo-900 to-slate-900 text-white rounded-2xl shadow-md border border-indigo-700/50 space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[11px] font-bold">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>গিটহাব পার্মানেন্ট সিঙ্ক গাইড (GitHub Permanent Update)</span>
+                        </div>
+                        <h4 className="text-base font-bold text-white">
+                          গিটহাবে হোস্ট করার পর অন্য ভিজিটরদের জন্য পরিবর্তন স্থায়ী করার উপায়
+                        </h4>
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                          গিটহাব পেজেস একটি স্ট্যাটিক ফাইল হোস্টিং। ব্রাউজারের অ্যাডমিন প্যানেলে করা কোনো পরিবর্তন আপনার ব্রাউজারের <code className="bg-black/40 px-1 py-0.5 rounded text-amber-300 font-mono">localStorage</code>-এ থাকে, তাই অন্য কোনো ভিজিটর আপনার সাইটে ঢুকলে সে মূল গিটহাবের ফাইলের ডেটা দেখে।
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 bg-black/40 rounded-xl border border-white/10 text-xs space-y-2">
+                      <p className="font-bold text-amber-300">📌 কীভাবে ১ মিনিটে গিটহাবে স্থায়ী করবেন?</p>
+                      <ol className="list-decimal pl-5 space-y-1.5 text-slate-300 text-[11px]">
+                        <li>
+                          নিচের <strong>"initialData.ts ডাউনলোড করুন"</strong> বাটনে ক্লিক করে ফাইলটি নামিয়ে নিন (অথবা কোড কপি করুন)।
+                        </li>
+                        <li>
+                          আপনার গিটহাব রিপোজিটরিতে ঢুকে <code className="text-emerald-300 font-mono">src/data/initialData.ts</code> ফাইলটিতে ক্লিক করে এডিট (পেন্সিল আইকন) চাপুন এবং নতুন কোড পেস্ট করে <strong>"Commit changes"</strong> করুন।
+                        </li>
+                        <li>
+                          ব্যস! ১-২ মিনিটের মধ্যে সাইট বিল্ড হয়ে আপনার নতুন কোর্স, গুগল মিট ও সেটিংস সারা বিশ্বের সব ভিজিটরের জন্য স্থায়ী হয়ে যাবে!
+                        </li>
+                      </ol>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleDownloadInitialDataTs}
+                        className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-xl text-xs flex items-center gap-2 transition cursor-pointer shadow-xs active:scale-95"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>initialData.ts ফাইল ডাউনলোড করুন</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleCopyInitialDataTs}
+                        className="px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition cursor-pointer active:scale-95"
+                      >
+                        <Copy className="w-4 h-4" />
+                        <span>সম্পূর্ণ কোড কপি করুন</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
