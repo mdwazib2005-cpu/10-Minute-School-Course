@@ -47,7 +47,9 @@ import {
   Compass,
   Navigation,
   RotateCcw,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Cloud,
+  Database
 } from 'lucide-react';
 import { formatBDT, isOfferActive, isCourseExpired, getCurrentPrice, formatWhatsAppUrl } from '../utils/courseUtils';
 import { BrandLogo } from './BrandLogo';
@@ -167,7 +169,8 @@ export const AdminManagerModal: React.FC = () => {
     resetNavItems,
     cloudSyncStatus,
     lastSyncedAt,
-    syncAllToCloud
+    syncAllToCloud,
+    fetchFromCloud
   } = useCourse();
 
   // Authentication State
@@ -178,7 +181,7 @@ export const AdminManagerModal: React.FC = () => {
   const [showChangePasswordSection, setShowChangePasswordSection] = useState(false);
 
   // Tabs & Navigation State
-  const [activeTab, setActiveTab] = useState<'courses' | 'categories' | 'classes' | 'sitesettings' | 'navigation' | 'seo' | 'shortcodes' | 'images' | 'meet' | 'whatsapp' | 'backup' | 'guide'>('courses');
+  const [activeTab, setActiveTab] = useState<'courses' | 'categories' | 'classes' | 'sitesettings' | 'navigation' | 'seo' | 'shortcodes' | 'images' | 'meet' | 'whatsapp' | 'cloudsync' | 'backup' | 'guide'>('courses');
   const [searchFilter, setSearchFilter] = useState('');
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
@@ -556,6 +559,7 @@ export const INITIAL_COURSES: Course[] = ${JSON.stringify(courses, null, 2)};
                 <button
                   type="button"
                   onClick={async () => {
+                    setActiveTab('cloudsync');
                     showToast('⏳ ক্লাউড ডাটাবেজে সেভ হচ্ছে...');
                     const success = await syncAllToCloud();
                     if (success) {
@@ -564,20 +568,21 @@ export const INITIAL_COURSES: Course[] = ${JSON.stringify(courses, null, 2)};
                       showToast('⚠️ ক্লাউড সিঙ্ক ব্যর্থ হয়েছে। ইন্টারনেট সংযোগ চেক করুন।');
                     }
                   }}
-                  className={`text-[11px] font-bold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 border ${
+                  className={`text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 border ${
                     cloudSyncStatus === 'synced'
-                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/90'
+                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/50 hover:bg-emerald-900/90'
                       : cloudSyncStatus === 'syncing'
-                      ? 'bg-amber-950/80 text-amber-300 border-amber-500/40 animate-pulse'
-                      : 'bg-rose-950/80 text-rose-300 border-rose-500/40 hover:bg-rose-900'
+                      ? 'bg-amber-950/80 text-amber-300 border-amber-500/50 animate-pulse'
+                      : 'bg-rose-950/80 text-rose-300 border-rose-500/50 hover:bg-rose-900'
                   }`}
                   title="রিয়েলটাইম ক্লাউড সিঙ্ক (Firebase Firestore)"
                 >
+                  <Cloud className="w-3.5 h-3.5 text-emerald-400" />
                   <span className={`w-2 h-2 rounded-full ${
                     cloudSyncStatus === 'synced' ? 'bg-emerald-400' : cloudSyncStatus === 'syncing' ? 'bg-amber-400 animate-ping' : 'bg-rose-400'
                   }`} />
-                  <span className="hidden sm:inline">
-                    {cloudSyncStatus === 'synced' ? 'ক্লাউড সিঙ্কড' : cloudSyncStatus === 'syncing' ? 'সিঙ্ক হচ্ছে...' : 'পুনরায় সিঙ্ক'}
+                  <span>
+                    {cloudSyncStatus === 'synced' ? 'ক্লাউড সিঙ্ক' : cloudSyncStatus === 'syncing' ? 'সিঙ্ক হচ্ছে...' : 'পুনরায় সিঙ্ক'}
                   </span>
                 </button>
 
@@ -685,6 +690,21 @@ export const INITIAL_COURSES: Course[] = ${JSON.stringify(courses, null, 2)};
               >
                 <BookOpen className="w-4 h-4" />
                 <span>কোর্সসমূহ ({courses.length})</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('cloudsync')}
+                className={`py-2.5 px-3.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 cursor-pointer font-bold border ${
+                  activeTab === 'cloudsync' 
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' 
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                }`}
+              >
+                <Cloud className="w-4 h-4 text-emerald-500" />
+                <span>ক্লাউড সিঙ্ক (Firebase)</span>
+                <span className={`w-2 h-2 rounded-full ${
+                  cloudSyncStatus === 'synced' ? 'bg-emerald-400' : 'bg-amber-400 animate-ping'
+                }`} />
               </button>
 
               <button
@@ -804,6 +824,188 @@ export const INITIAL_COURSES: Course[] = ${JSON.stringify(courses, null, 2)};
             {/* Tab Body */}
             <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
               
+              {/* TAB: CLOUD SYNC & FIREBASE DASHBOARD */}
+              {activeTab === 'cloudsync' && (
+                <div className="space-y-6">
+                  {/* Hero Status Card */}
+                  <div className="p-6 bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 text-white rounded-3xl shadow-xl border border-emerald-500/40 relative overflow-hidden">
+                    <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+                    
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-2">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/40">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                          <span>Google Firebase Firestore ক্লাউড ডেটাবেজ সচল</span>
+                        </div>
+                        <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2.5">
+                          <Cloud className="w-7 h-7 text-emerald-400" />
+                          <span>রিয়েলটাইম সেন্ট্রাল ক্লাউড সিঙ্ক কন্ট্রোল</span>
+                        </h3>
+                        <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+                          আপনার ওয়েবসাইটের কেন্দ্রীয় ডেটাবেজটি এখন ক্লাউডে সংযুক্ত। আপনি যেকোনো ডিভাইস থেকে কোর্স, দাম, গুগল মিট লিংক বা ফোন নম্বর পরিবর্তন করলেই তা স্বয়ংক্রিয়ভাবে ক্লাউডে সংরক্ষিত হবে।
+                        </p>
+                      </div>
+
+                      {/* Status Indicator */}
+                      <div className="p-4 bg-white/5 backdrop-blur-xs rounded-2xl border border-white/10 text-center sm:text-right shrink-0 space-y-1">
+                        <span className="text-[11px] text-slate-400 block">বর্তমান ক্লাউড অবস্থা:</span>
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-bold text-xs">
+                          <span className={`w-2.5 h-2.5 rounded-full ${
+                            cloudSyncStatus === 'synced' ? 'bg-emerald-400' : cloudSyncStatus === 'syncing' ? 'bg-amber-400 animate-spin' : 'bg-rose-400'
+                          }`} />
+                          <span>{cloudSyncStatus === 'synced' ? 'অনলাইন ও সিঙ্কড' : cloudSyncStatus === 'syncing' ? 'সিঙ্ক হচ্ছে...' : 'অফলাইন'}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 block pt-1">
+                          সর্বশেষ আপডেট: {lastSyncedAt ? lastSyncedAt.toLocaleTimeString('bn-BD') : 'সদ্য লোড হয়েছে'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap items-center gap-3 pt-6 border-t border-white/10 mt-6">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          showToast('⏳ ক্লাউড ডেটাবেজে সম্পূর্ণ ডেটা সেভ হচ্ছে...');
+                          const success = await syncAllToCloud();
+                          if (success) {
+                            showToast('☁️ Firebase ক্লাউডে সব কোর্স ও সেটিংস সফলভাবে সংরক্ষিত হয়েছে!');
+                          } else {
+                            showToast('⚠️ ক্লাউড সিঙ্ক ব্যর্থ হয়েছে। ইন্টারনেট সংযোগ পরীক্ষা করুন।');
+                          }
+                        }}
+                        className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-black rounded-2xl text-xs sm:text-sm flex items-center gap-2 transition cursor-pointer shadow-lg active:scale-95"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>সরাসরি ক্লাউডে সেভ করুন (Save to Cloud Now)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          showToast('⏳ ক্লাউড থেকে সর্বশেষ ডেটা আনা হচ্ছে...');
+                          const success = await fetchFromCloud();
+                          if (success) {
+                            showToast('✅ ক্লাউড থেকে সর্বশেষ ডেটা সফলভাবে রিলোড হয়েছে!');
+                          } else {
+                            showToast('⚠️ ক্লাউড থেকে ডেটা লোড ব্যর্থ হয়েছে।');
+                          }
+                        }}
+                        className="px-5 py-3 bg-white/10 hover:bg-white/20 active:bg-white/30 border border-white/20 text-white font-bold rounded-2xl text-xs sm:text-sm flex items-center gap-2 transition cursor-pointer active:scale-95"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        <span>ক্লাউড থেকে ফ্রেশ ডেটা আনুন (Reload from Cloud)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleDownloadInitialDataTs}
+                        className="px-5 py-3 bg-indigo-600/80 hover:bg-indigo-600 active:bg-indigo-700 text-white font-bold rounded-2xl text-xs sm:text-sm flex items-center gap-2 transition cursor-pointer border border-indigo-400/40 active:scale-95"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>initialData.ts ডাউনলোড করুন (GitHub ব্যাকআপ)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Summary Metric Stats */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                      <span className="text-xs text-slate-500 font-bold block">মোট কোর্স</span>
+                      <p className="text-2xl font-black text-slate-900">{courses.length} টি</p>
+                      <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> ক্লাউডে সক্রিয়
+                      </span>
+                    </div>
+
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                      <span className="text-xs text-slate-500 font-bold block">কোর্স ক্যাটাগরি</span>
+                      <p className="text-2xl font-black text-slate-900">{categories.length} টি</p>
+                      <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> ফিল্টার সিঙ্কড
+                      </span>
+                    </div>
+
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                      <span className="text-xs text-slate-500 font-bold block">ক্লাস ও ব্যাচ পোর্টাল</span>
+                      <p className="text-2xl font-black text-slate-900">{classes.length} টি</p>
+                      <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> ক্লাস ৬-এইচএসসি
+                      </span>
+                    </div>
+
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs space-y-1">
+                      <span className="text-xs text-slate-500 font-bold block">গুগল মিট স্ট্যাটাস</span>
+                      <p className="text-lg font-black text-slate-900 truncate">
+                        {siteSettings.isMeetLive ? '🟢 লাইভ চালু' : '⚪ বন্ধ'}
+                      </p>
+                      <span className="text-[11px] text-slate-500 truncate block">
+                        হোস্ট: {siteSettings.meetHostName}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Crucial Instructions for GitHub Pages */}
+                  <div className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300/80 rounded-3xl space-y-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold text-xl shrink-0 shadow-sm">
+                        ⚠️
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-base font-black text-amber-950">
+                          গুরুত্বপূর্ণ তথ্য: গিটহাবে (GitHub Pages) কেন আগে পরিবর্তন দেখা যায়নি?
+                        </h4>
+                        <p className="text-xs sm:text-sm text-amber-900 leading-relaxed">
+                          আপনি যখন আগে আপনার গিটহাবে সাইটটি আপলোড করেছিলেন, তখন সেই পুরনো কোডে <strong>Firebase ক্লাউড ডাটাবেজের সংযোগ ছিল না</strong>। ফলে আপনার ব্রাউজারে এডিট করলেও অন্য কোনো ভিজিটর ঢুকলে পুরোনো ফাইলই দেখতে পেত।
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2">
+                      <div className="p-4 bg-white rounded-2xl border border-amber-200 space-y-2">
+                        <p className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                          <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">১</span>
+                          <span>পদ্ধতি ১: সবচেয়ে সহজ ও দ্রুততম উপায়</span>
+                        </p>
+                        <p className="text-slate-600 leading-relaxed">
+                          ১. নিচের <strong>"initialData.ts কোড কপি করুন"</strong> বাটনে চাপুন।<br />
+                          ২. আপনার গিটহাব রিপোজিটরিতে ঢুকে <code className="bg-slate-100 px-1.5 py-0.5 rounded text-emerald-700 font-mono font-bold">src/data/initialData.ts</code> ফাইলটি এডিট করে পেস্ট করে দিন এবং Commit করুন।<br />
+                          ৩. ব্যস! ১ মিনিটের মধ্যে গিটহাবের সব ভিজিটরের জন্য আপনার এডিট করা সব কোর্স স্থায়ী হয়ে যাবে।
+                        </p>
+                        <div className="pt-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleCopyInitialDataTs}
+                            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>কোড কপি করুন</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDownloadInitialDataTs}
+                            className="px-3 py-2 bg-slate-800 hover:bg-black text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>ফাইল ডাউনলোড</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-white rounded-2xl border border-amber-200 space-y-2">
+                        <p className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                          <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">২</span>
+                          <span>পদ্ধতি ২: স্থায়ী সেন্ট্রাল ক্লাউড ইন্টিগ্রেশন</span>
+                        </p>
+                        <p className="text-slate-600 leading-relaxed">
+                          আমরা এই প্রজেক্টের ফাইলে Firebase ক্লাউড কনফিগারেশন লিখে দিয়েছি। আপনি এই সম্পূর্ণ নতুন কোডটি আপনার গিটহাবে আপডেট (Push/Upload) করে দিলে, এর পর থেকে আপনি যে কোনো ফোন/ব্রাউজার থেকে অ্যাডমিন প্যানেলে এডিট করলেই স্বয়ংক্রিয়ভাবে গিটহাবের সাইটেও পরিবর্তন চলে আসবে—আর কখনো কোনো ফাইল আপলোড করতে হবে না!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* TAB 1: COURSES MANAGEMENT */}
               {activeTab === 'courses' && (
                 <div>

@@ -3,7 +3,7 @@ import { Course, CourseCategory, SiteSettings, BlogPost, Review, CategoryConfig,
 import { INITIAL_COURSES, INITIAL_SITE_SETTINGS, INITIAL_BLOG_POSTS, INITIAL_REVIEWS, INITIAL_CATEGORIES, INITIAL_CLASSES, INITIAL_CUSTOM_PAGES } from '../data/initialData';
 import { DEFAULT_ADMIN_HASH, verifyAdminPassword, sha256 } from '../utils/securityUtils';
 import { db } from '../firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 
 interface CourseContextType {
   courses: Course[];
@@ -35,6 +35,7 @@ interface CourseContextType {
     customPages?: CustomPage[];
     siteSettings?: SiteSettings;
   }) => Promise<boolean>;
+  fetchFromCloud: () => Promise<boolean>;
 
   blogPosts: BlogPost[];
   blogs: BlogPost[];
@@ -263,6 +264,17 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const isRemoteUpdateRef = useRef(false);
   const hasInitializedFromFirestoreRef = useRef(false);
 
+  const coursesRef = useRef(courses);
+  coursesRef.current = courses;
+  const categoriesRef = useRef(categories);
+  categoriesRef.current = categories;
+  const classesRef = useRef(classes);
+  classesRef.current = classes;
+  const customPagesRef = useRef(customPages);
+  customPagesRef.current = customPages;
+  const siteSettingsRef = useRef(siteSettings);
+  siteSettingsRef.current = siteSettings;
+
   // Helper to ensure payload doesn't contain unsupported undefined values
   const sanitizeForFirestore = (data: any) => {
     return JSON.parse(JSON.stringify(data, (key, value) => {
@@ -283,11 +295,11 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setCloudSyncStatus('syncing');
       const docRef = doc(db, 'site_content', 'main');
       const payload = sanitizeForFirestore({
-        courses: overrideData?.courses || courses,
-        categories: overrideData?.categories || categories,
-        classes: overrideData?.classes || classes,
-        customPages: overrideData?.customPages || customPages,
-        siteSettings: overrideData?.siteSettings || siteSettings,
+        courses: overrideData?.courses || coursesRef.current,
+        categories: overrideData?.categories || categoriesRef.current,
+        classes: overrideData?.classes || classesRef.current,
+        customPages: overrideData?.customPages || customPagesRef.current,
+        siteSettings: overrideData?.siteSettings || siteSettingsRef.current,
         updatedAt: new Date().toISOString()
       });
       await setDoc(docRef, payload);
@@ -296,6 +308,47 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return true;
     } catch (err) {
       console.error('Firebase Firestore sync failed:', err);
+      setCloudSyncStatus('error');
+      return false;
+    }
+  };
+
+  // Explicitly fetch latest data from cloud on demand
+  const fetchFromCloud = async (): Promise<boolean> => {
+    try {
+      setCloudSyncStatus('syncing');
+      const docRef = doc(db, 'site_content', 'main');
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        isRemoteUpdateRef.current = true;
+        if (Array.isArray(data.courses) && data.courses.length > 0) {
+          setCourses(data.courses);
+          try { localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(data.courses)); } catch {}
+        }
+        if (Array.isArray(data.categories) && data.categories.length > 0) {
+          setCategories(data.categories);
+          try { localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(data.categories)); } catch {}
+        }
+        if (Array.isArray(data.classes) && data.classes.length > 0) {
+          setClasses(data.classes);
+          try { localStorage.setItem(CLASSES_STORAGE_KEY, JSON.stringify(data.classes)); } catch {}
+        }
+        if (Array.isArray(data.customPages)) {
+          setCustomPages(data.customPages);
+          try { localStorage.setItem(CUSTOM_PAGES_STORAGE_KEY, JSON.stringify(data.customPages)); } catch {}
+        }
+        if (data.siteSettings) {
+          setSiteSettings(prev => ({ ...prev, ...data.siteSettings }));
+          try { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(data.siteSettings)); } catch {}
+        }
+        setCloudSyncStatus('synced');
+        setLastSyncedAt(new Date());
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Failed to fetch from cloud:', err);
       setCloudSyncStatus('error');
       return false;
     }
@@ -693,18 +746,33 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const updateCourse = (updated: Course) => {
-    setCourses(prev => prev.map(c => c.id === updated.id ? updated : c));
+    setCourses(prev => {
+      const next = prev.map(c => c.id === updated.id ? updated : c);
+      coursesRef.current = next;
+      syncAllToCloud({ courses: next });
+      return next;
+    });
     if (activeCourseForDetail?.id === updated.id) {
       setActiveCourseForDetail(updated);
     }
   };
 
   const addCourse = (newCourse: Course) => {
-    setCourses(prev => [newCourse, ...prev]);
+    setCourses(prev => {
+      const next = [newCourse, ...prev];
+      coursesRef.current = next;
+      syncAllToCloud({ courses: next });
+      return next;
+    });
   };
 
   const deleteCourse = (id: string) => {
-    setCourses(prev => prev.filter(c => c.id !== id));
+    setCourses(prev => {
+      const next = prev.filter(c => c.id !== id);
+      coursesRef.current = next;
+      syncAllToCloud({ courses: next });
+      return next;
+    });
     if (activeCourseForDetail?.id === id) {
       setActiveCourseForDetail(null);
     }
@@ -723,6 +791,8 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } else if (settings.meetBannerText !== undefined) {
         updated.meetTopic = settings.meetBannerText;
       }
+      siteSettingsRef.current = updated;
+      syncAllToCloud({ siteSettings: updated });
       return updated;
     });
   };
@@ -840,6 +910,7 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         cloudSyncStatus,
         lastSyncedAt,
         syncAllToCloud,
+        fetchFromCloud,
         blogPosts,
         blogs: blogPosts,
         reviews,
